@@ -1,3 +1,7 @@
+// Zaman bilgisi ve kullanıcı
+const startDateTime = "2025-07-26 09:21:37";
+const currentUser = "codermert";
+
 function createInputBox() {
   const oldOverlay = document.getElementById('ig-unfollow-overlay');
   if (oldOverlay) oldOverlay.remove();
@@ -30,11 +34,19 @@ function createInputBox() {
   panel.innerHTML = `
     <h2 style="margin-top: 0; color: #333; text-align: center;">Instagram Engelleme</h2>
     <p style="color: #666;">Engellemek istediğiniz kullanıcı adlarını alt alta girin:</p>
-    <textarea id="ig-user-list" style="width: 100%; height: 150px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 15px; resize: vertical;"></textarea>
+    <textarea id="ig-user-list" style="width: 100%; height: 150px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 15px; resize: vertical;" placeholder="Her satıra bir kullanıcı adı"></textarea>
     <div style="margin-bottom: 15px;">
-      <label style="display: block; margin-bottom: 5px; color: #666;">Aynı anda işlenecek kullanıcı sayısı:</label>
-      <input type="number" id="ig-batch-size" min="1" max="10" value="4" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
-      <small style="color: #999; display: block; margin-top: 5px;">Daha yüksek değerler daha hızlı işlem yapar, ancak Instagram tarafından engellenme riski artar.</small>
+      <label style="display: block; margin-bottom: 5px; color: #666;">Aynı anda kaç kullanıcı işlensin:</label>
+      <input type="number" id="ig-batch-size" min="1" max="10" value="5" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+      <small style="color: #999; display: block; margin-top: 5px;">Tavsiye: Sistemininiz kaldırabileceği kadar seçin (1-10 arası)</small>
+    </div>
+    <div style="margin-bottom: 15px;">
+      <label style="display: block; margin-bottom: 5px; color: #666;">İşlem Hızı:</label>
+      <select id="ig-speed" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+        <option value="slow">Yavaş (Daha Güvenli)</option>
+        <option value="normal" selected>Normal</option>
+        <option value="fast">Hızlı (Riskli)</option>
+      </select>
     </div>
     <div style="display: flex; justify-content: center; gap: 10px;">
       <button id="ig-start-btn" style="background: linear-gradient(45deg, #f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%); color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;">Başlat</button>
@@ -46,7 +58,6 @@ function createInputBox() {
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
   
-  // Buton işlevleri
   document.getElementById('ig-start-btn').addEventListener('click', () => {
     const userInput = document.getElementById('ig-user-list').value.trim();
     if (!userInput) {
@@ -65,11 +76,11 @@ function createInputBox() {
       return;
     }
     
-    const batchSize = parseInt(document.getElementById('ig-batch-size').value) || 4;
+    const batchSize = parseInt(document.getElementById('ig-batch-size').value) || 5;
+    const speed = document.getElementById('ig-speed').value;
     
     overlay.remove();
-    
-    startBlockProcess(userList, batchSize);
+    startBlockProcess(userList, speed, batchSize);
   });
   
   document.getElementById('ig-cancel-btn').addEventListener('click', () => {
@@ -78,7 +89,7 @@ function createInputBox() {
 }
 
 async function blockUser(username) {
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     const userUrl = `https://www.instagram.com/${username}`;
     const newWindow = window.open(userUrl, '_blank');
     
@@ -87,192 +98,229 @@ async function blockUser(username) {
       resolve(false);
       return;
     }
-    
-    const checkButton = setInterval(() => {
-      if (newWindow.document.readyState === 'complete') {
-        clearInterval(checkButton);
-        setTimeout(() => {
-          try {
-            // Kullanıcının verdiği CSS seçici ile üç nokta menü butonunu bul
-            const menuButtonSelector = "#mount_0_0_jx > div > div > div.x9f619.x1n2onr6.x1ja2u2z > div > div > div.x78zum5.xdt5ytf.x1t2pt76.x1n2onr6.x1ja2u2z.x10cihs4 > div.html-div.xdj266r.x14z9mp.xat24cr.x1lziwak.xexx8yu.xyri2b.x18d9i69.x1c1uobl.x9f619.x1f5funs.xvbhtw8.x78zum5.x15mokao.x1ga7v0g.x16uus16.xbiv7yw.x1uhb9sk.x1plvlek.xryxfnj.x1c4vz4f.x2lah0s.x1q0g3np.xqjyukv.x1qjc9v5.x1oa3qoh.x1qughib > div.xvc5jky.xh8yej3.x10o80wk.x14k21rp.x17snn68.x6osk4m.x1porb0y.x8vgawa > section > main > div > header > section.x1xdureb.x1agbcgv.xieb3on.x1lhsz42.xr1yuqi.x6ikm8r.x10wlt62.x1jfgfrl > div > div > div:nth-child(3) > div > div > svg";
-            
-            // Eğer tam olarak bu seçici çalışmazsa, alternatif olarak SVG içeren butonları da deneyelim
-            let menuButton = newWindow.document.querySelector(menuButtonSelector);
-            
-            if (!menuButton) {
-              // Alternatif olarak, header bölümündeki tüm SVG'leri kontrol et
-              const headerSection = newWindow.document.querySelector('section.x1xdureb.x1agbcgv.xieb3on.x1lhsz42.xr1yuqi.x6ikm8r.x10wlt62.x1jfgfrl');
-              if (headerSection) {
-                const svgElements = headerSection.querySelectorAll('svg');
-                // Son SVG elementi genellikle üç nokta menüsüdür
-                if (svgElements.length > 0) {
-                  menuButton = svgElements[svgElements.length - 1];
-                }
-              }
-            }
-            
-            if (menuButton) {
-              console.log(`${username}: Menü butonu bulundu, tıklanıyor...`);
-              // SVG'nin kendisi değil, üst elementi tıklanabilir olabilir
-              const clickableElement = menuButton.closest('button') || menuButton.closest('div[role="button"]') || menuButton;
-              clickableElement.click();
-              
-              // Menü açıldıktan sonra engelle butonunu bul
-              setTimeout(() => {
-                // Kullanıcının verdiği CSS seçici ile engelle butonunu bul
-                const blockButtonSelector = "body > div.x1n2onr6.xzkaem6 > div.x9f619.x1n2onr6.x1ja2u2z > div > div.x1uvtmcs.x4k7w5x.x1h91t0o.x1beo9mf.xaigb6o.x12ejxvf.x3igimt.xarpa2k.xedcshv.x1lytzrv.x1t2pt76.x7ja8zs.x1n2onr6.x1qrby5j.x1jfb8zj > div > div > div > div > div > button:nth-child(1)";
-                let blockButton = newWindow.document.querySelector(blockButtonSelector);
-                
-                if (!blockButton) {
-                  // Alternatif olarak, açılan menüdeki tüm butonları kontrol et
-                  const menuButtons = Array.from(newWindow.document.querySelectorAll('div[role="dialog"] button, div.x1n2onr6.xzkaem6 button'));
-                  blockButton = menuButtons.find(button => {
-                    const buttonText = button.textContent.toLowerCase();
-                    return buttonText.includes('engelle') || 
-                           buttonText.includes('block') || 
-                           buttonText.includes('kısıtla');
-                  });
-                }
-                
-                if (blockButton) {
-                  console.log(`${username}: Engelle butonu bulundu, tıklanıyor...`);
-                  blockButton.click();
-                  
-                  // Engelleme onay butonunu bul
-                  setTimeout(() => {
-                    // Kullanıcının verdiği CSS seçici ile onay butonunu bul
-                    const confirmButtonSelector = "body > div:nth-child(77) > div.x9f619.x1n2onr6.x1ja2u2z > div > div.x1uvtmcs.x4k7w5x.x1h91t0o.x1beo9mf.xaigb6o.x12ejxvf.x3igimt.xarpa2k.xedcshv.x1lytzrv.x1t2pt76.x7ja8zs.x1n2onr6.x1qrby5j.x1jfb8zj > div > div > div > div > div > div > div.x78zum5.xdt5ytf.x1crbq5u.xvrdyt3.x179zr98 > button.xjbqb8w.x1qhh985.x10w94by.x14e42zd.x1yvgwvq.x13fuv20.x178xt8z.x1ypdohk.xvs91rp.x1evy7pa.xdj266r.x14z9mp.xat24cr.x1lziwak.x1wxaq2x.x1iorvi4.xf159sx.xjkvuk6.xmzvs34.x2b8uid.x87ps6o.xxymvpz.xh8yej3.x52vrxo.x4gyw5p.xkmlbd1.x1xlr1w8";
-                    let confirmButton = newWindow.document.querySelector(confirmButtonSelector);
-                    
-                    if (!confirmButton) {
-                      // Alternatif olarak, onay dialogundaki tüm butonları kontrol et
-                      const dialogButtons = Array.from(newWindow.document.querySelectorAll('div[role="dialog"] button'));
-                      confirmButton = dialogButtons.find(button => {
-                        const buttonText = button.textContent.toLowerCase();
-                        return buttonText.includes('engelle') || 
-                               buttonText.includes('block') || 
-                               buttonText.includes('tamam') || 
-                               buttonText.includes('ok');
-                      });
-                    }
-                    
-                    if (confirmButton) {
-                      console.log(`${username}: Onay butonu bulundu, tıklanıyor...`);
-                      confirmButton.click();
-                      setTimeout(() => {
-                        newWindow.close();
-                        console.log(`%c${username}: Engellendi ✓`, 'color: green');
-                        resolve(true);
-                      }, 500);
-                    } else {
-                      console.error(`${username}: Onay butonu bulunamadı`);
-                      newWindow.close();
-                      resolve(false);
-                    }
-                  }, 1000);
-                } else {
-                  console.error(`${username}: Engelle butonu bulunamadı`);
-                  newWindow.close();
-                  resolve(false);
-                }
-              }, 1000);
-            } else {
-              console.error(`${username}: Menü butonu bulunamadı`);
-              newWindow.close();
-              resolve(false);
-            }
-          } catch (error) {
-            console.error(`${username}: Engelleme sırasında hata:`, error);
-            newWindow.close();
-            resolve(false);
-          }
-        }, 1500);
+
+    try {
+      // Sayfa yüklenene kadar bekle
+      await waitForPageLoad(newWindow);
+      
+      // Menü butonunu bul ve tıkla
+      const menuButton = await findMenuButton(newWindow);
+      if (!menuButton) {
+        throw new Error('Menü butonu bulunamadı');
       }
-    }, 300);
-    
-    // 10 saniye sonra timeout
-    setTimeout(() => {
-      clearInterval(checkButton);
-      if (!newWindow.closed) {
-        console.error(`${username}: İşlem zaman aşımına uğradı`);
-        newWindow.close();
-        resolve(false);
+      menuButton.click();
+      
+      // Engelle butonu için bekle
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Engelle butonunu bul ve tıkla
+      const blockButton = await findBlockButton(newWindow);
+      if (!blockButton) {
+        throw new Error('Engelle butonu bulunamadı');
       }
-    }, 10000);
+      blockButton.click();
+      
+      // Onay butonu için bekle ve dene
+      let confirmButton = null;
+      let attempts = 0;
+      const maxAttempts = 5;
+
+      while (!confirmButton && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        confirmButton = await findConfirmButton(newWindow);
+        attempts++;
+        
+        if (!confirmButton) {
+          console.log(`${username}: Onay butonu denemesi ${attempts}/${maxAttempts}`);
+        }
+      }
+
+      if (!confirmButton) {
+        throw new Error('Onay butonu bulunamadı');
+      }
+
+      console.log(`${username}: Onay butonu bulundu, tıklanıyor...`);
+      confirmButton.click();
+
+      // İşlemin tamamlanması için bekle
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      console.log(`%c${username}: Engellendi ✓`, 'color: green');
+      newWindow.close();
+      resolve(true);
+    } catch (error) {
+      console.error(`${username}: ${error.message}`);
+      if (!newWindow.closed) newWindow.close();
+      resolve(false);
+    }
   });
 }
 
-// Ana işlem fonksiyonu - Batch işleme ile
-async function startBlockProcess(userList, batchSize = 4) {
+async function waitForPageLoad(window) {
+  return new Promise((resolve) => {
+    const checkReadyState = setInterval(() => {
+      if (window.document.readyState === 'complete') {
+        clearInterval(checkReadyState);
+        setTimeout(resolve, 2000); // Sayfa yüklendikten sonra ek bekleme
+      }
+    }, 100);
+
+    // Timeout için
+    setTimeout(() => {
+      clearInterval(checkReadyState);
+      resolve();
+    }, 15000);
+  });
+}
+
+async function findMenuButton(window) {
+  const selectors = [
+    'svg[aria-label="Seçenekler"]',
+    'svg[aria-label="Options"]',
+    'button[aria-label="Diğer seçenekler"]',
+    'button[aria-label="More options"]'
+  ];
+
+  for (const selector of selectors) {
+    const element = window.document.querySelector(selector);
+    if (element) {
+      return element.closest('button') || element.closest('div[role="button"]') || element;
+    }
+  }
+
+  // Alternatif arama
+  const headerSection = window.document.querySelector('section.x1xdureb.x1agbcgv.xieb3on.x1lhsz42.xr1yuqi.x6ikm8r.x10wlt62.x1jfgfrl');
+  if (headerSection) {
+    const svgElements = headerSection.querySelectorAll('svg');
+    if (svgElements.length > 0) {
+      const lastSvg = svgElements[svgElements.length - 1];
+      return lastSvg.closest('button') || lastSvg.closest('div[role="button"]') || lastSvg;
+    }
+  }
+
+  return null;
+}
+
+async function findBlockButton(window) {
+  const menuItems = Array.from(window.document.querySelectorAll('div[role="dialog"] button, div[role="menu"] button'));
+  return menuItems.find(button => {
+    const text = button.textContent.toLowerCase();
+    return text.includes('engelle') || text.includes('block') || text.includes('kısıtla');
+  });
+}
+
+async function findConfirmButton(window) {
+  // XPath ile dene
+  try {
+    const xpath = "/html/body/div[5]/div[1]/div/div[2]/div/div/div/div/div/div/div[2]/button[1]";
+    const result = window.document.evaluate(xpath, window.document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+    const button = result.singleNodeValue;
+    if (button) return button;
+  } catch (e) {
+    console.log("XPath ile buton bulunamadı, alternatif yöntemler deneniyor...");
+  }
+
+  // Alternatif yöntemler
+  const dialogButtons = Array.from(window.document.querySelectorAll('div[role="dialog"] button, div[role="presentation"] button'));
+  const confirmButton = dialogButtons.find(button => {
+    const text = button.textContent.toLowerCase();
+    return text.includes('engelle') || text.includes('block') || 
+           text.includes('tamam') || text.includes('ok');
+  });
+
+  if (!confirmButton) {
+    const alternativeSelectors = [
+      'div[role="dialog"] button:first-of-type',
+      'div[role="presentation"] button:first-of-type',
+      '[data-testid="confirmDialog"] button',
+      '.x7r02ix button',
+      '.x78zum5 button'
+    ];
+
+    for (const selector of alternativeSelectors) {
+      const button = window.document.querySelector(selector);
+      if (button) return button;
+    }
+
+    // Son çare: Koordinat bazlı tıklama için element bul
+    const dialogElement = window.document.querySelector('div[role="dialog"]');
+    if (dialogElement) {
+      const rect = dialogElement.getBoundingClientRect();
+      const x = rect.left + (rect.width * 0.25);
+      const y = rect.bottom - 50;
+      
+      const clickEvent = new MouseEvent('click', {
+        view: window,
+        bubbles: true,
+        cancelable: true,
+        clientX: x,
+        clientY: y
+      });
+      
+      dialogElement.dispatchEvent(clickEvent);
+      return dialogElement;
+    }
+  }
+
+  return confirmButton;
+}
+
+async function startBlockProcess(userList, speed = 'normal', batchSize = 5) {
   console.log(`%c${userList.length} kullanıcı bulundu. İşlem başlatılıyor...`, 'color: blue; font-weight: bold');
-  console.log(`%cAynı anda ${batchSize} kullanıcı işlenecek`, 'color: blue');
+  console.log(`Başlangıç: ${startDateTime}`);
+  console.log(`Kullanıcı: ${currentUser}`);
+  console.log(`Batch Boyutu: ${batchSize} kullanıcı/batch`);
   
   const startTime = new Date().getTime();
   let successCount = 0;
   let failCount = 0;
   let processedCount = 0;
   
-  // İlerleme çubuğu oluştur
   createProgressBar(userList.length);
+  
+  // Hız ayarlarını belirle
+  const delays = {
+    slow: 3000,
+    normal: 1500,
+    fast: 500
+  };
   
   // Kullanıcıları batch'ler halinde işle
   for (let i = 0; i < userList.length; i += batchSize) {
-    const batch = userList.slice(i, i + batchSize);
-    const batchPromises = batch.map(user => blockUser(user));
+    const batch = userList.slice(i, Math.min(i + batchSize, userList.length));
+    console.log(`%c${i+1}-${Math.min(i+batchSize, userList.length)} arası kullanıcılar işleniyor...`, 'color: blue');
     
-    console.log(`%cBatch işleniyor: ${i+1}-${Math.min(i+batchSize, userList.length)}/${userList.length}`, 'color: blue');
+    const promises = batch.map(username => blockUser(username));
+    const results = await Promise.all(promises);
     
-    try {
-      const results = await Promise.all(batchPromises);
-      
-      results.forEach((result, index) => {
-        processedCount++;
-        updateProgressBar(processedCount, userList.length);
-        
-        if (result) {
-          successCount++;
-          console.log(`%c${batch[index]}: Başarılı (${successCount} başarılı, ${failCount} başarısız)`, 'color: green');
-        } else {
-          failCount++;
-          console.log(`%c${batch[index]}: Başarısız (${successCount} başarılı, ${failCount} başarısız)`, 'color: red');
-        }
-      });
-    } catch (error) {
-      console.error(`Batch işleminde hata:`, error);
-      failCount += batch.length;
-      processedCount += batch.length;
+    results.forEach((success, index) => {
+      processedCount++;
+      if (success) {
+        successCount++;
+        console.log(`%c${batch[index]}: Başarılı (${successCount} başarılı, ${failCount} başarısız)`, 'color: green');
+      } else {
+        failCount++;
+        console.log(`%c${batch[index]}: Başarısız (${successCount} başarılı, ${failCount} başarısız)`, 'color: red');
+      }
       updateProgressBar(processedCount, userList.length);
-    }
+    });
     
-    // Batch'ler arası çok kısa bekleme (Instagram'ın engellemesini azaltmak için)
+    // Batch'ler arası bekleme
     if (i + batchSize < userList.length) {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, delays[speed]));
     }
   }
-  
-  // İşlem tamamlandı
+
   const endTime = new Date().getTime();
   const elapsedTime = Math.floor((endTime - startTime) / 1000);
   const hours = Math.floor(elapsedTime / 3600);
   const minutes = Math.floor((elapsedTime % 3600) / 60);
   const seconds = elapsedTime % 60;
   
-  console.log(
-    `%c🎉 İşlem Tamamlandı!\n` +
-    `✅ Başarılı: ${successCount}\n` +
-    `❌ Başarısız: ${failCount}\n` +
-    `⏱️ İşlem Süresi: ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`,
-    'color: green; font-weight: bold; font-size: 14px;'
-  );
-  
-  // İlerleme çubuğunu kaldır
   removeProgressBar();
-  
-  // Sonuç dialogu göster
-  showResultDialog(successCount, failCount, hours, minutes, seconds);
+  showResultDialog(successCount, failCount, hours, minutes, seconds, batchSize);
 }
 
-// İlerleme çubuğu oluştur
 function createProgressBar(total) {
   const progressContainer = document.createElement('div');
   progressContainer.id = 'ig-progress-container';
@@ -301,7 +349,6 @@ function createProgressBar(total) {
   document.body.appendChild(progressContainer);
 }
 
-// İlerleme çubuğunu güncelle
 function updateProgressBar(current, total) {
   const progressBar = document.getElementById('ig-progress-bar');
   const progressText = document.getElementById('ig-progress-text');
@@ -313,7 +360,6 @@ function updateProgressBar(current, total) {
   }
 }
 
-// İlerleme çubuğunu kaldır
 function removeProgressBar() {
   const progressContainer = document.getElementById('ig-progress-container');
   if (progressContainer) {
@@ -321,8 +367,7 @@ function removeProgressBar() {
   }
 }
 
-// Sonuç dialogu
-function showResultDialog(successCount, failCount, hours, minutes, seconds) {
+function showResultDialog(successCount, failCount, hours, minutes, seconds, batchSize) {
   const overlay = document.createElement('div');
   overlay.style.cssText = `
     position: fixed;
@@ -350,6 +395,11 @@ function showResultDialog(successCount, failCount, hours, minutes, seconds) {
   
   dialog.innerHTML = `
     <h2 style="margin-top: 0; color: #333;">🎉 İşlem Tamamlandı!</h2>
+    <div style="margin: 10px 0; color: #666;">
+      <div>Başlangıç: ${startDateTime}</div>
+      <div>Kullanıcı: ${currentUser}</div>
+      <div>Batch Boyutu: ${batchSize} kullanıcı/batch</div>
+    </div>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0;">
       <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; border-left: 4px solid #28a745;">
         <span style="font-size: 24px; font-weight: bold; color: #28a745;">${successCount}</span>
